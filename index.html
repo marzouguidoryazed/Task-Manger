@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Task Manager</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="p-5">
+
+<div class="container">
+  <h1>Task Manager</h1>
+
+ 
+  <div class="mb-3">
+    <button class="btn btn-outline-primary me-2" onclick="filterTasks('all')">All</button>
+    <button class="btn btn-outline-success me-2" onclick="filterTasks('completed')">Completed</button>
+    <button class="btn btn-outline-warning" onclick="filterTasks('pending')">Pending</button>
+  </div>
+
+  <form id="taskForm" class="mb-3">
+    <input type="text" id="title" placeholder="Title" class="form-control mb-2" required>
+    <input type="text" id="description" placeholder="Description" class="form-control mb-2" required>
+    <button type="submit" class="btn btn-primary">Add Task</button>
+  </form>
+
+  
+  <ul id="taskList" class="list-group"></ul>
+</div>
+
+
+<div class="modal fade" id="editTaskModal" tabindex="-1" aria-labelledby="editTaskModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form id="editTaskForm">
+        <div class="modal-header">
+          <h5 class="modal-title" id="editTaskModalLabel">Edit Task</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="editTaskId">
+          <div class="mb-3">
+            <label for="editTitle" class="form-label">Title</label>
+            <input type="text" class="form-control" id="editTitle" required>
+          </div>
+          <div class="mb-3">
+            <label for="editDescription" class="form-label">Description</label>
+            <input type="text" class="form-control" id="editDescription" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+
+const API_URL = 'http://localhost:3000/tasks';
+const editModal = new bootstrap.Modal(document.getElementById('editTaskModal'));
+let currentFilter = 'all';
+
+function fetchTasks() {
+  fetch(API_URL)
+    .then(res => res.json())
+    .then(tasks => {
+      const list = document.getElementById('taskList');
+      list.innerHTML = '';
+
+     
+      if (currentFilter === 'completed') tasks = tasks.filter(t => t.completed);
+      else if (currentFilter === 'pending') tasks = tasks.filter(t => !t.completed);
+
+      tasks.forEach(task => {
+        const li = document.createElement('li');
+        li.className = 'list-group-item d-flex justify-content-between align-items-center';
+        li.innerHTML = `
+          <div>
+            <input type="checkbox" class="form-check-input me-2" ${task.completed ? 'checked' : ''} onchange="toggleCompleted(${task.id})">
+            <strong class="${task.completed ? 'text-decoration-line-through text-muted' : ''}">${task.title}</strong> - 
+            <span class="${task.completed ? 'text-decoration-line-through text-muted' : ''}">${task.description}</span>
+          </div>
+          <div>
+            <button class="btn btn-sm btn-warning me-2" onclick="editTask(${task.id}, '${task.title}', '${task.description}')">Edit</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteTask(${task.id})">Delete</button>
+          </div>
+        `;
+        list.appendChild(li);
+      });
+    });
+}
+
+
+function addTask(title, description) {
+  fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title, description })
+  }).then(fetchTasks);
+}
+
+
+function editTask(id, title, description) {
+  document.getElementById('editTaskId').value = id;
+  document.getElementById('editTitle').value = title;
+  document.getElementById('editDescription').value = description;
+  editModal.show();
+}
+
+
+document.getElementById('editTaskForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const id = document.getElementById('editTaskId').value;
+  const title = document.getElementById('editTitle').value;
+  const description = document.getElementById('editDescription').value;
+
+  fetch(`${API_URL}/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title, description })
+  }).then(() => {
+    fetchTasks();
+    editModal.hide();
+  });
+});
+
+
+function deleteTask(id) {
+  fetch(`${API_URL}/${id}`, { method: 'DELETE' }).then(fetchTasks);
+}
+
+
+function toggleCompleted(id) {
+  fetch(`${API_URL}/${id}/toggle`, { method: 'PUT' }).then(fetchTasks);
+}
+
+function filterTasks(type) {
+  currentFilter = type;
+  fetchTasks();
+}
+
+document.getElementById('taskForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const title = document.getElementById('title').value;
+  const description = document.getElementById('description').value;
+  addTask(title, description);
+  e.target.reset();
+});
+
+fetchTasks();
+</script>
+</body>
+</html>
+
+
